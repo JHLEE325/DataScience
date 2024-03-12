@@ -1,0 +1,25 @@
+import numpy as np
+import pandas as pd
+import random
+
+# get data
+df = pd.read_csv("students_adaptability_level_online_education_org.csv")
+
+total = df.count().values[0]
+features = df.columns.values[:13]
+print(features)
+
+for feature in features:    
+    alist=[] # 뽑은 a를 넣어 중복 방지해주는 리스트
+    for i in range(int(total/100)+random.randint(1,200)):
+        a = random.randint(1,total)       
+        while a in alist : # a가 이미 뽑은 리스트에 있을 때까지 다시 뽑자
+            a = random.randint(1,total)
+        alist.append(a) # 새로운 a 값을 리스트에 추가
+    print("[NaN",feature,"count]:",len(alist))
+    # Delete features
+    for idx in alist:
+        df[feature][idx] = np.NaN
+print(df.info())
+# Save
+# df.to_csv("students_adaptability_level_online_education.csv")

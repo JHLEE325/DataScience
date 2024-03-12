@@ -1,0 +1,240 @@
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn import preprocessing
+from sklearn import feature_selection
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.model_selection import train_test_split
+from sklearn import tree
+from sklearn.metrics import accuracy_score
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import KFold
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn import linear_model
+from sklearn.metrics import classification_report
+
+# get data
+df = pd.read_csv("students_adaptability_level_online_education.csv")
+
+# Data Inspection
+# ---------------
+# Show dataset information
+print(df.info(), end="\n\n")
+
+# Check the first 5 rows of the dataframe
+display(df.head(5))
+print("\n")
+
+# Feature(Unnamed: 0) is unnecessary. Delete feature(Unnamed: 0)
+df = df.drop("Unnamed: 0",axis=1)
+
+# Show dataset information after delete feature(Unnamed: 0)
+print(df.info(), end="\n\n")
+
+# Check the first 5 rows of the dataframe
+display(df.head(5))
+print("\n")
+
+# Check the feature names & dataset shape
+print("Feature names:",list(df.columns), end="\n\n")
+print("Dataset shape:",df.shape, end="\n\n")
+
+# Check feature's unique value & value_counts -> visualize (pie chart)
+print("<<Check each feature's unique value>>")
+for feature in df.columns.values:
+    group_df=df.groupby([feature], dropna=False, as_index=False)
+    plt.clf()
+    plt.pie(group_df.size()['size'],labels=group_df.size()[feature].unique(),autopct="%1.2f%%")
+    plt.title("Pie chart ("+feature+")")
+    plt.show()
+    print(group_df.size(), end="\n\n")
+    
+# Data Preprocessing
+# ------------------
+# Delete if the record contains a NaN value.
+df.dropna(axis=0, inplace=True)
+df.reset_index(drop=True, inplace=True)
+
+# Show dataset information
+print(df.info(), end="\n\n")
+# Check feature's unique value & value_counts -> visualize (pie chart)
+print("<<Check each feature's unique value>>")
+for feature in df.columns.values:
+    group_df=df.groupby([feature], dropna=False, as_index=False)
+    plt.clf()
+    plt.pie(group_df.size()['size'],labels=group_df.size()[feature].unique(),autopct="%1.2f%%")
+    plt.title("Pie chart ("+feature+")")
+    plt.show()
+    print(group_df.size(), end="\n\n")
+
+# Save clean dataset
+df.to_csv("clean.csv",header=True,index=False)
+    
+# Label Encoding to convert categorical values to numeric values
+ldf = df.copy()
+le = preprocessing.LabelEncoder()
+for feature in list(df.columns):
+    ldf[feature]=le.fit_transform(df[feature].values)
+display(df)
+display(ldf)
+
+# Show One-Hot encoding result
+dfOHE = df.copy()
+dfOHE = pd.get_dummies(df, columns=['Gender','Age','Education Level','Institution Type','IT Student','Location','Load-shedding','Financial Condition','Internet Type','Network Type','Class Duration','Self Lms','Device'], prefix=['Gender','Age','Education Level','Institution Type','IT Student','Location','Load-shedding','Financial Condition','Internet Type','Network Type','Class Duration','Self Lms','Device'])
+display(dfOHE)
+
+# Apply extratreesclassifier class to extract important features in order
+X_independent=ldf.iloc[:,0:13]
+y_target=ldf.iloc[:,-1]
+model=ExtraTreesClassifier()
+model.fit(X_independent, y_target)
+# Plot graph of feature importances for better visualization
+plt.clf()
+feat_importances=pd.Series(model.feature_importances_,index=X_independent.columns)
+feat_importances.nlargest(13).plot(kind='barh')
+plt.show()
+# We try top5~all feature selection. But all feature is the best accuracy.
+# So, We use all of these features.
+
+# Drop feature code
+# ldf = ldf.drop(columns=['IT Student','Load-shedding','Self Lms','Device','Location','Institution Type','Internet Type'])
+
+# Plot scaling results for features
+# StandardScaler, MinMaxScaler, RobustScaler in order
+scalers = [preprocessing.StandardScaler(), preprocessing.MinMaxScaler(), preprocessing.RobustScaler()]
+titles = ['Standard Scaling','MinMax Scaling','Robust Scaling']
+for scaler,title in zip(scalers,titles):
+    # Scaling
+    X_ldf=ldf.drop(['Adaptivity Level'], axis=1)
+    scaled_df = scaler.fit_transform(X_ldf)
+    scaled_df = pd.DataFrame(scaled_df,columns=list(X_ldf.columns))
+
+    # Make subplot
+    fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(10,8))
+
+    # Before Scaling plot
+    ax1.set_title("Before Scaling")
+    ax1.set_xlabel("values")
+    for feature in list(X_ldf.columns):
+        sns.kdeplot(X_ldf[feature], ax=ax1)
+
+    # After Scaling plot
+    ax2.set_title(title)
+    ax2.set_xlabel("values")
+    for feature in list(scaled_df.columns):
+        sns.kdeplot(scaled_df[feature], ax=ax2)
+    plt.show()
+
+    # Display dataframe (before, after)
+    display(ldf.head(5))
+
+    # Make complete scaled dataframe
+    scaled_df = pd.concat([scaled_df,ldf['Adaptivity Level']], axis=1)
+    display(scaled_df.head(5))
+
+    # Data Analysis
+    # -------------
+    # Regression
+    X = scaled_df.drop(columns=['Adaptivity Level']).values
+    y = scaled_df['Adaptivity Level'].values
+
+    # Split the dataset (4/5(3/5) for training and 1/5(2/5) for testing)
+    for a,b in zip([0.8,0.6],[0.2,0.4]):
+        X_train, X_test, y_train, y_test = train_test_split(X,y,train_size=a,test_size=b,shuffle=True)
+
+        # Linear regression -> fit & predict
+        reg = linear_model.LinearRegression()
+        reg.fit(X_train, y_train)
+        y_pred=reg.predict(X_test)
+
+        # Evaluation
+        print("<Result of tested model(training: ",a,", testing: ",b,")>", sep="")
+        print(pd.DataFrame(y_pred))
+        print("<Result Score(training: ",a,", testing: ",b,")>", sep="")
+        print("-->",np.round(reg.score(X_test, y_test),5))
+        print()
+
+    # Decision Tree
+    X = scaled_df.drop(columns=['Adaptivity Level']).values
+    y = scaled_df['Adaptivity Level'].values
+
+    # Split the dataset 9/10(8/10,7/10) for training and 1/10(2/10,3/10) for testing)
+    for a,b in zip([0.9,0.8,0.7],[0.1,0.2,0.3]):
+        X_train, X_test, y_train, y_test = train_test_split(X,y,train_size=a,test_size=b,shuffle=True)
+
+        # Decision tree -> fit & predict
+        tr = tree.DecisionTreeClassifier(criterion='entropy')
+        tr.fit(X_train,y_train)
+        y_pred_tr = tr.predict(X_test)
+
+        # Plotting
+        plt.figure()
+        tree.plot_tree(tr,filled=True)
+        plt.title("Decision Tree (training: "+str(a)+", testing: "+str(b)+")")
+        plt.show()
+
+        # Show matrix
+        print("<Classification Report (Decisiion Tree)>")
+        print(classification_report(tr.predict(X_test),y_test))
+
+        # Evaluation
+        print("<Result of test model(training: ",a,", testing: ",b,")>", sep="")
+        print("<Result Score(training: ",a,", testing: ",b,")>", sep="")
+        print('-->%.5f' % accuracy_score(y_test, y_pred_tr))
+        print()
+
+    # KNN
+    X = ldf.drop(columns=['Adaptivity Level']).values
+    y = ldf['Adaptivity Level'].values
+
+    # Split the dataset (4/5 for training and 1/5 for testing)
+    X_train, X_test, y_train, y_test = train_test_split(X,y,train_size=0.8,test_size=0.2,shuffle=True,stratify=y)
+
+    # Prepare cross validation
+    kfold = KFold(5,shuffle=True,random_state=1)
+
+    # For Check Loop
+    idx=0
+
+    # Split the dataset into 5 subsets of equal size
+    for train, test in kfold.split(X):
+        # For Check Loop
+        idx+=1
+        print("Split[",idx,"]",sep="")
+        for k in [3,5]:
+            # Set train data & test data
+            X_train, X_test, y_train, y_test = X[train],X[test],y[train],y[test]
+
+            # KNN -> fit & predict
+            knn = KNeighborsClassifier(n_neighbors=k)
+            knn.fit(X_train, y_train)
+            cv_scores = cross_val_score(knn,X_train,y_train,cv=5)
+
+            # Evaluation
+            print("<Result Score(k=",k,")>",sep="")
+            print("Scores:",np.round(cv_scores,5),"/ mean:",np.round(np.mean(cv_scores),5))
+            # Show matrix
+            print("<Classification Report (KNN)>")
+            print(classification_report(knn.predict(X_test),y_test))
+
+            # GridSearchCV
+            param_grid={'n_neighbors':np.arange(1,25)}
+            knn_gscv = GridSearchCV(knn,param_grid,cv=5)
+            knn_gscv.fit(X_train,y_train)
+
+            # Evaluation
+            print("Best params in GridSearchCV:",knn_gscv.best_params_)
+            print("Best score in GridSearchCV:",knn_gscv.best_score_)
+
+            # RandomizedSearchCV
+            param_r_grid={'n_neighbors':np.arange(1,25)}
+            knn_rgscv = RandomizedSearchCV(knn,param_r_grid,cv=5,scoring='accuracy')
+            knn_rgscv.fit(X_train,y_train)
+
+            # Evaluation
+            print("Best params in RandomizedSearchCV:",knn_rgscv.best_params_)
+            print("Best score in RandomizedSearchCV:",knn_rgscv.best_score_)
+        print()

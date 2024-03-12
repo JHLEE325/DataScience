@@ -1,0 +1,133 @@
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
+from sklearn import tree
+from sklearn.metrics import accuracy_score
+
+# Read data
+data_org = pd.read_csv("clean.csv")
+
+# Function to predict result
+def predict_result():
+    # Get data
+    user_age=entry_age.get()
+    user_el=entry_el.get()
+    user_nt=entry_nt.get()
+    user_cd=entry_cd.get()
+    user_gender=entry_gender.get()
+    user_fc=entry_fc.get()
+    
+    # Modify data (Age, Class Duration)
+    if(1<=int(user_age)<=5): user_age = '01-05'
+    elif(6<=int(user_age)<=10): user_age = '06-10'
+    elif(11<=int(user_age)<=15): user_age = '11-15'
+    elif(16<=int(user_age)<=20): user_age = '16-20'
+    elif(21<=int(user_age)<=25): user_age = '21-25'
+    elif(26<=int(user_age)): user_age = '26-30'
+    if(int(user_cd)==0): user_cd='0'
+    elif(1<=int(user_cd)<=3): user_cd='01-03'
+    elif(4<=int(user_cd)): user_cd='03-06'
+        
+    # Add user data into dataset
+    user = np.array([[str(user_gender),str(user_age),str(user_el),str(user_fc),str(user_nt),str(user_cd)]])
+    X_df = data_org.drop(columns=['IT Student','Load-shedding','Self Lms','Device','Location','Institution Type','Internet Type','Adaptivity Level'])
+    df = X_df.to_numpy()
+    print(df)
+    print("\noriginal data + user")
+    df = np.append(df,user, axis=0)
+    print(df)
+
+    # Normalization (dataset & user)
+    from sklearn.preprocessing import LabelEncoder
+    le = LabelEncoder()
+    org_df = pd.DataFrame(df,columns=['Age','Education Level','Financial Condition','Network Type','Class Duration','Gender'])
+    for feature in ['Age','Education Level','Financial Condition','Network Type','Class Duration','Gender']:
+        org_df[feature]=le.fit_transform(org_df[feature].values)
+    scaler = MinMaxScaler()
+    df = scaler.fit_transform(org_df)
+    print("\nMinMaxScaler result")
+    print(df)
+
+    # Check user input
+    user = df[-1]
+    print("user",user)
+    
+    # Drop user input
+    df = df[:len(df)-1]
+
+    df = pd.DataFrame(df,columns=['Age','Education Level','Financial Condition','Network Type','Class Duration','Gender'])
+    X = df.values
+    y = data_org['Adaptivity Level'].values
+    tr = tree.DecisionTreeClassifier(criterion='entropy')
+    tr.fit(X,y)
+    y_pred_tr = tr.predict(user.reshape(1,-1))
+
+    # Predicted result
+    print(y_pred_tr)
+
+    #Set text at GUI
+    label_final.config(text="Adaptivity Level : "+y_pred_tr)
+    
+from tkinter import *
+# Setting window
+root = Tk()
+root.title("Predict Adaptability Level")
+root.geometry("340x500-500+140")
+root.resizable(False, False)
+
+# Make text
+label = Label(root, text = "\n\n< Enter Your Info >\n")
+label.pack()
+
+# Age
+label_age = Label(root, text = "Age\n(1~30)")
+label_age.pack()
+entry_age = Entry(root, width=30)
+entry_age.bind("<Return>", predict_result)
+entry_age.pack()
+
+# Education Level
+label_el = Label(root, text = "Education Level\n(College / University / School)")
+label_el.pack()
+entry_el = Entry(root, width=30)
+entry_el.bind("<Return>", predict_result)
+entry_el.pack()
+
+# Network Type
+label_nt = Label(root, text = "Network Type\n(2G / 3G / 4G)")
+label_nt.pack()
+entry_nt = Entry(root, width=30)
+entry_nt.bind("<Return>", predict_result)
+entry_nt.pack()
+
+# Class Duration
+label_cd = Label(root, text = "Class Duration\n(0~6)")
+label_cd.pack()
+entry_cd = Entry(root, width=30)
+entry_cd.bind("<Return>", predict_result)
+entry_cd.pack()
+
+# Gender
+label_gender = Label(root, text = "Gender\n(Boy / Girl)")
+label_gender.pack()
+entry_gender = Entry(root, width=30)
+entry_gender.bind("<Return>", predict_result)
+entry_gender.pack()
+
+# Financial Condition
+label_fc = Label(root, text = "Financial Condition\n(Rich / Mid / Poor)")
+label_fc.pack()
+entry_fc = Entry(root, width=30)
+entry_fc.bind("<Return>", predict_result)
+entry_fc.pack()
+
+# Make button
+button = Button(root, width=10, text="show",overrelief="solid",command=predict_result)
+button.pack()
+
+# Make text
+label_final = Label(root,text=" ")
+label_final.pack()
+
+# Set on the window
+root.mainloop()
